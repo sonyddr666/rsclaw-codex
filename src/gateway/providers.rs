@@ -11,6 +11,7 @@ use crate::{
     provider::{
         LlmProvider,
         anthropic::{self as anthropic, AnthropicProvider},
+        codex_proxy::{self, CodexProxyProvider},
         gemini::{self as gemini, GeminiProvider},
         openai::OpenAiProvider,
         registry::ProviderRegistry,
@@ -31,6 +32,7 @@ pub(crate) fn build_providers(config: &RuntimeConfig) -> ProviderRegistry {
             let base_url = provider_cfg.base_url.clone().or_else(|| {
                 // Fall back to well-known base URLs for named providers.
                 match name.as_str() {
+                    "codex-proxy" | "codex" => Some(codex_proxy::CODEX_PROXY_DEFAULT_BASE.to_owned()),
                     "qwen" => Some("https://dashscope.aliyuncs.com/compatible-mode/v1".to_owned()),
                     "deepseek" => Some("https://api.deepseek.com/v1".to_owned()),
                     "kimi" | "moonshot" => Some("https://api.moonshot.cn/v1".to_owned()),
@@ -64,6 +66,10 @@ pub(crate) fn build_providers(config: &RuntimeConfig) -> ProviderRegistry {
             });
 
             let provider: Arc<dyn LlmProvider> = match (name.as_str(), &api_format) {
+                ("codex-proxy", _) | ("codex", _) => {
+                    let url = base_url.unwrap_or_else(|| codex_proxy::CODEX_PROXY_DEFAULT_BASE.to_owned());
+                    Arc::new(CodexProxyProvider::with_user_agent(url, user_agent))
+                }
                 ("anthropic", _)
                 | (_, &crate::config::schema::ApiFormat::Anthropic)
                 | (_, &crate::config::schema::ApiFormat::AnthropicMessages) => {
@@ -128,6 +134,16 @@ pub(crate) fn build_providers(config: &RuntimeConfig) -> ProviderRegistry {
         && let Ok(key) = std::env::var("GEMINI_API_KEY")
     {
         registry.register("gemini", Arc::new(GeminiProvider::new(key)));
+    }
+
+    // Auto-register local Codex proxy when explicitly configured by env.
+    if !registry.names().contains(&"codex-proxy")
+        && std::env::var("CODEX_PROXY_BASE_URL").is_ok()
+    {
+        registry.register(
+            "codex-proxy",
+            Arc::new(CodexProxyProvider::new(codex_proxy::CODEX_PROXY_DEFAULT_BASE)),
+        );
     }
 
     // Auto-register OpenAI-compatible providers from env vars.
