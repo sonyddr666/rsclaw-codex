@@ -1,0 +1,25 @@
+[Unit]
+Description=RsClaw gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rsclaw
+Group=rsclaw
+EnvironmentFile=-/etc/rsclaw/rsclaw.env
+Environment=RSCLAW_BASE_DIR=/var/lib/rsclaw
+ExecStart=/usr/local/bin/rsclaw start --foreground
+Restart=always
+RestartSec=5
+WorkingDirectory=/var/lib/rsclaw
+
+# Keep this service small-VPS friendly.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+ReadWritePaths=/var/lib/rsclaw /var/log/rsclaw /tmp
+
+[Install]
+WantedBy=multi-user.target
