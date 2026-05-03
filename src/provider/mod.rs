@@ -5,6 +5,7 @@
 //! 429/auth retries with exponential back-off.
 
 pub mod anthropic;
+pub mod codex_proxy;
 pub mod defaults;
 pub mod failover;
 pub mod gemini;
